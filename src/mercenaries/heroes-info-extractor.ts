@@ -8,12 +8,14 @@ import { HeroesSkillsParser } from './parsers/heroes-skill-parser';
 import { isMercenaries } from '../utils/hs-utils';
 import { Stat } from '../stat';
 import { ReviewMessage } from '../review-message';
+import { MercenariesReferenceData } from '../process-mercenaries-review';
 
 export const mercsHeroesInfosExtractor = async (
 	message: ReviewMessage,
 	replay: Replay,
 	replayString: string,
 	allCards: AllCardsService,
+	mercenariesReferenceData: MercenariesReferenceData,
 ): Promise<readonly Stat[]> => {
 	// console.log('will extract', isMercenaries(message.gameMode), message.gameMode);
 	if (!isMercenaries(message.gameMode)) {
@@ -21,7 +23,7 @@ export const mercsHeroesInfosExtractor = async (
 	}
 
 	// console.log('replay mainPlayerId', replay.mainPlayerId);
-	const heroesInfos = heroesInfosExtractor(replay, allCards);
+	const heroesInfos = heroesInfosExtractor(replay, allCards, mercenariesReferenceData);
 	// console.log('heroesTiming', heroesTiming);
 
 	return [
@@ -67,6 +69,7 @@ export const mercsHeroesInfosExtractor = async (
 export const heroesInfosExtractor = (
 	replay: Replay,
 	allCards: AllCardsService,
+	mercenariesReferenceData: MercenariesReferenceData,
 ): {
 	timings: { [heroCardId: string]: number };
 	equipments: { [heroCardId: string]: number | string };
@@ -75,7 +78,7 @@ export const heroesInfosExtractor = (
 } => {
 	const timingParser = new HeroesTimingParser();
 	const equipmentParser = new HeroesEquipmentParser(allCards);
-	const levelParser = new HeroesLevelParser();
+	const levelParser = new HeroesLevelParser(mercenariesReferenceData);
 	const skillsParser = new HeroesSkillsParser();
 	crawlMercsGame(replay, [timingParser, equipmentParser, levelParser, skillsParser]);
 	return {

@@ -1,5 +1,5 @@
 import { parseHsReplayString, Replay } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
-import { AllCardsService, HERO_EQUIPMENT, HERO_SKILLS } from '@firestone-hs/reference-data';
+import { AllCardsService } from '@firestone-hs/reference-data';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
 import { getConnection } from './db/rds';
@@ -8,9 +8,11 @@ import { mercsHeroesInfosExtractor } from './mercenaries/heroes-info-extractor';
 import { ReviewMessage } from './review-message';
 import { Stat } from './stat';
 import { getCardLevel, isMercenaries, normalizeMercCardId } from './utils/hs-utils';
+import { http } from './utils/util-functions';
 
 const allCards = new AllCardsService();
 const s3 = new S3();
+let mercenariesReferenceData: MercenariesReferenceData = null;
 
 // This example demonstrates a NodeJS 8.10 async handler[1], however of course you could use
 // the more traditional callback-style handler.
@@ -24,6 +26,9 @@ export default async (event): Promise<any> => {
 		.filter(msg => msg)
 		.map(msg => JSON.parse(msg));
 	const mysql = await getConnection();
+	if (!mercenariesReferenceData) {
+		mercenariesReferenceData = await http(`https://static.zerotoheroes.com/api/mercenaries-data.json?v=2`);
+	}
 	for (const message of messages) {
 		await handleReview(message, mysql);
 	}
@@ -163,7 +168,9 @@ export const extractStats = async (
 ): Promise<readonly Stat[]> => {
 	const extractors = [mercsHeroesInfosExtractor];
 	const stats: readonly Stat[] = (
-		await Promise.all(extractors.map(extractor => extractor(message, replay, replayString, allCards)))
+		await Promise.all(
+			extractors.map(extractor => extractor(message, replay, replayString, allCards, mercenariesReferenceData)),
+		)
 	)
 		.reduce((a, b) => a.concat(b), [])
 		.filter(stat => stat);
@@ -188,13 +195,17 @@ const emptyAsNull = (value: string): string => {
 };
 
 const findEquipmentForHero = (allEquipmentCardIds: string[], heroCardId: string): string => {
-	const candidates: readonly string[] = HERO_EQUIPMENT[heroCardId].filter(e => allEquipmentCardIds.includes(e));
+	const heroEquipmentCardIds = mercenariesReferenceData.mercenaries
+		.find(merc => merc.cardId === heroCardId)
+		.equipments.map(eq => eq.cardDbfId)
+		.map(eqDbfId => allCards.getCardFromDbfId(eqDbfId).id);
+	const candidates: readonly string[] = heroEquipmentCardIds.filter(e => allEquipmentCardIds.includes(e));
 	if (candidates.length === 0) {
 		return null;
 	}
 
 	if (candidates.length > 1) {
-		console.error('could not get correct equipment for hero', heroCardId, HERO_EQUIPMENT[heroCardId], candidates);
+		console.error('could not get correct equipment for hero', heroCardId, heroEquipmentCardIds, candidates);
 	}
 
 	return candidates[0];
@@ -204,11 +215,70 @@ const getSpellsForHero = (
 	stats: Stat[],
 	heroCardId: string,
 ): { spellCardId: string; numberOfTimesUsed: number; level: number }[] => {
+	const heroAbilityCardIds = mercenariesReferenceData.mercenaries
+		.find(merc => merc.cardId === heroCardId)
+		.abilities.map(ability => ability.cardDbfId)
+		.map(abilityDbfId => allCards.getCardFromDbfId(abilityDbfId).id);
 	const allSpellCardIds = stats.map(stat => stat.statValue.split('|')[0]);
-	const heroSpellCardIds = allSpellCardIds.filter(s => HERO_SKILLS[heroCardId].includes(normalizeMercCardId(s)));
+	const heroSpellCardIds = allSpellCardIds.filter(s => heroAbilityCardIds.includes(normalizeMercCardId(s)));
 	return heroSpellCardIds.sort().map(spellCardId => ({
 		spellCardId: spellCardId,
 		numberOfTimesUsed: parseInt(stats.find(stat => stat.statValue.startsWith(spellCardId)).statValue.split('|')[1]),
 		level: getCardLevel(spellCardId),
 	}));
 };
+
+export interface MercenariesReferenceData {
+	readonly mercenaries: readonly {
+		readonly id: number;
+		readonly cardId: string;
+		readonly name: string;
+		readonly specializationId: number;
+		readonly specializationName: string;
+		readonly abilities: readonly {
+			readonly abilityId: number;
+			readonly cardDbfId: number;
+			readonly mercenaryRequiredLevel: number;
+			readonly tiers: readonly {
+				readonly tier: number;
+				readonly cardDbfId: number;
+				readonly coinCraftCost: number;
+			}[];
+		}[];
+		readonly equipments: readonly {
+			readonly equipmentId: number;
+			readonly cardDbfId: number;
+			readonly tiers: readonly {
+				readonly tier: number;
+				readonly cardDbfId: number;
+				readonly coinCraftCost: number;
+				readonly attackModifier: number;
+				readonly healthModifier: number;
+			}[];
+		}[];
+	}[];
+	readonly mercenaryLevels: readonly {
+		readonly currentLevel: number;
+		readonly xpToNext: number;
+	}[];
+	readonly bountySets: readonly {
+		readonly id: number;
+		readonly name: string;
+		readonly descriptionNormal: string;
+		readonly descriptionHeroic: string;
+		readonly descriptionLegendary: string;
+		readonly sortOrder: number;
+		readonly bounties: readonly {
+			readonly id: number;
+			readonly name: string;
+			readonly level: number;
+			readonly enabled: number;
+			readonly difficultyMode: number;
+			readonly heroic: number;
+			readonly finalBossCardId: number;
+			readonly sortOrder: number;
+			readonly requiredCompletedBountyId: number;
+			readonly rewardMercenaryIds: readonly number[];
+		}[];
+	}[];
+}
