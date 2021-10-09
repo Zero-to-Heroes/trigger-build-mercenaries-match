@@ -196,7 +196,7 @@ const emptyAsNull = (value: string): string => {
 
 const findEquipmentForHero = (allEquipmentCardIds: string[], heroCardId: string): string => {
 	const heroEquipmentCardIds = mercenariesReferenceData.mercenaries
-		.find(merc => merc.cardId === heroCardId)
+		.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
 		.equipments.map(eq => eq.cardDbfId)
 		.map(eqDbfId => allCards.getCardFromDbfId(eqDbfId).id);
 	const candidates: readonly string[] = heroEquipmentCardIds.filter(e => allEquipmentCardIds.includes(e));
@@ -216,7 +216,7 @@ const getSpellsForHero = (
 	heroCardId: string,
 ): { spellCardId: string; numberOfTimesUsed: number; level: number }[] => {
 	const heroAbilityCardIds = mercenariesReferenceData.mercenaries
-		.find(merc => merc.cardId === heroCardId)
+		.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
 		.abilities.map(ability => ability.cardDbfId)
 		.map(abilityDbfId => allCards.getCardFromDbfId(abilityDbfId).id);
 	const allSpellCardIds = stats.map(stat => stat.statValue.split('|')[0]);
@@ -231,7 +231,7 @@ const getSpellsForHero = (
 export interface MercenariesReferenceData {
 	readonly mercenaries: readonly {
 		readonly id: number;
-		readonly cardId: string;
+		readonly cardDbfId: number;
 		readonly name: string;
 		readonly specializationId: number;
 		readonly specializationName: string;
