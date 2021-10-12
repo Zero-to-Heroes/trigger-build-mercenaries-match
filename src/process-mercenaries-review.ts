@@ -27,8 +27,14 @@ export default async (event): Promise<any> => {
 		.map(msg => JSON.parse(msg));
 	const mysql = await getConnection();
 	if (!mercenariesReferenceData) {
-		mercenariesReferenceData = await http(`https://static.zerotoheroes.com/api/mercenaries-data.json?v=2`);
+		const strReferenceData = await http(
+			`https://static.zerotoheroes.com/hearthstone/data/mercenaries-data.json?v=3`,
+		);
+		console.log('found reference data', strReferenceData?.length);
+		mercenariesReferenceData = JSON.parse(strReferenceData);
+		console.log('parsed reference data', mercenariesReferenceData);
 	}
+	// console.log('mercenaries reference data', mercenariesReferenceData);
 	for (const message of messages) {
 		await handleReview(message, mysql);
 	}
@@ -49,10 +55,14 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 	}
 
 	const replay: Replay = parseHsReplayString(replayString);
-	const statsFromGame: readonly Stat[] = await extractStats(message, replay, replayString);
+	const statsFromGame: readonly Stat[] = await extractStats(message, replay, replayString, mercenariesReferenceData);
 
 	const heroTimings = statsFromGame
 		.filter(stat => stat.statName === 'mercs-hero-timing')
+		.map(stat => stat.statValue)
+		.join(',');
+	const opponentHeroTimings = statsFromGame
+		.filter(stat => stat.statName === 'opponent-mercs-hero-timing')
 		.map(stat => stat.statValue)
 		.join(',');
 	const heroEquipments = statsFromGame
@@ -76,7 +86,8 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 				mercHeroTimings = ${escape(heroTimings)},
 				mercHeroEquipments = ${escape(heroEquipments)},
 				mercHeroLevels = ${escape(heroLevels)},
-				mercHeroSkills = ${escape(heroSkillsUsed)}
+				mercHeroSkills = ${escape(heroSkillsUsed)},
+				mercOpponentHeroTimings = ${escape(opponentHeroTimings)}
 			WHERE
 				reviewId = ${escape(message.reviewId)}
 		`;
@@ -165,6 +176,7 @@ export const extractStats = async (
 	message: ReviewMessage,
 	replay: Replay,
 	replayString: string,
+	mercenariesReferenceData: MercenariesReferenceData,
 ): Promise<readonly Stat[]> => {
 	const extractors = [mercsHeroesInfosExtractor];
 	const stats: readonly Stat[] = (
@@ -195,10 +207,11 @@ const emptyAsNull = (value: string): string => {
 };
 
 const findEquipmentForHero = (allEquipmentCardIds: string[], heroCardId: string): string => {
-	const heroEquipmentCardIds = mercenariesReferenceData.mercenaries
-		.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
-		.equipments.map(eq => eq.cardDbfId)
-		.map(eqDbfId => allCards.getCardFromDbfId(eqDbfId).id);
+	const heroEquipmentCardIds =
+		mercenariesReferenceData.mercenaries
+			.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
+			?.equipments.map(eq => eq.cardDbfId)
+			.map(eqDbfId => allCards.getCardFromDbfId(eqDbfId).id) ?? [];
 	const candidates: readonly string[] = heroEquipmentCardIds.filter(e => allEquipmentCardIds.includes(e));
 	if (candidates.length === 0) {
 		return null;
@@ -215,10 +228,11 @@ const getSpellsForHero = (
 	stats: Stat[],
 	heroCardId: string,
 ): { spellCardId: string; numberOfTimesUsed: number; level: number }[] => {
-	const heroAbilityCardIds = mercenariesReferenceData.mercenaries
-		.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
-		.abilities.map(ability => ability.cardDbfId)
-		.map(abilityDbfId => allCards.getCardFromDbfId(abilityDbfId).id);
+	const heroAbilityCardIds =
+		mercenariesReferenceData.mercenaries
+			.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
+			?.abilities.map(ability => ability.cardDbfId)
+			.map(abilityDbfId => allCards.getCardFromDbfId(abilityDbfId).id) ?? [];
 	const allSpellCardIds = stats.map(stat => stat.statValue.split('|')[0]);
 	const heroSpellCardIds = allSpellCardIds.filter(s => heroAbilityCardIds.includes(normalizeMercCardId(s)));
 	return heroSpellCardIds.sort().map(spellCardId => ({

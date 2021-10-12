@@ -9,6 +9,7 @@ import { isMercenaries } from '../utils/hs-utils';
 import { Stat } from '../stat';
 import { ReviewMessage } from '../review-message';
 import { MercenariesReferenceData } from '../process-mercenaries-review';
+import { OpponentHeroesTimingParser } from './parsers/opponent-heroes-timing-parser';
 
 export const mercsHeroesInfosExtractor = async (
 	message: ReviewMessage,
@@ -32,6 +33,13 @@ export const mercsHeroesInfosExtractor = async (
 				({
 					statName: 'mercs-hero-timing',
 					statValue: heroCardId + '|' + heroesInfos.timings[heroCardId],
+				} as Stat),
+		),
+		...Object.keys(heroesInfos.opponentTimings).map(
+			heroCardId =>
+				({
+					statName: 'opponent-mercs-hero-timing',
+					statValue: heroCardId + '|' + heroesInfos.opponentTimings[heroCardId],
 				} as Stat),
 		),
 		...Object.keys(heroesInfos.equipments).map(
@@ -72,17 +80,20 @@ export const heroesInfosExtractor = (
 	mercenariesReferenceData: MercenariesReferenceData,
 ): {
 	timings: { [heroCardId: string]: number };
+	opponentTimings: { [heroCardId: string]: number };
 	equipments: { [heroCardId: string]: number | string };
 	levels: { [heroCardId: string]: number };
 	skillUsages: { [skillCardId: string]: number };
 } => {
 	const timingParser = new HeroesTimingParser();
+	const opponentTimingParser = new OpponentHeroesTimingParser();
 	const equipmentParser = new HeroesEquipmentParser(allCards);
 	const levelParser = new HeroesLevelParser(mercenariesReferenceData);
 	const skillsParser = new HeroesSkillsParser();
-	crawlMercsGame(replay, [timingParser, equipmentParser, levelParser, skillsParser]);
+	crawlMercsGame(replay, [timingParser, equipmentParser, levelParser, skillsParser, opponentTimingParser]);
 	return {
 		timings: timingParser.heroesTiming,
+		opponentTimings: opponentTimingParser.heroesTiming,
 		equipments: equipmentParser.equipmentMapping,
 		levels: levelParser.levelMapping,
 		skillUsages: skillsParser.abilitiesPlayedThisMatch,

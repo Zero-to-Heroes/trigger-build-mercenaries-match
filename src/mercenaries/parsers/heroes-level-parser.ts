@@ -43,6 +43,6 @@ const getLevelFromXp = (totalXp: number, mercenariesReferenceData: MercenariesRe
 		currentLevel++;
 		xpToAttribute -= levelMapping.xpToNext;
 	}
-	console.log(totalXp, 'maps to lvl', currentLevel);
+	// console.log(totalXp, 'maps to lvl', currentLevel);
 	return currentLevel;
 };
