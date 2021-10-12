@@ -1,5 +1,6 @@
 import { parseHsReplayString, Replay } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { AllCardsService } from '@firestone-hs/reference-data';
+import { normalize } from 'path';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
 import { getConnection } from './db/rds';
@@ -47,7 +48,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 		console.log('not mercenaries', message);
 		return;
 	}
-	await allCards.initializeCardsDb();
+	await allCards.initializeCardsDb('otirjhoritjh');
 
 	const replayString = await loadReplayString(message.replayKey);
 	if (!replayString || replayString.length === 0) {
@@ -111,23 +112,44 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 			// Find the only equipment that could fit the hero
 			const allEquipmentCardIds = statsFromGame
 				.filter(stat => stat.statName === 'mercs-hero-equipment')
-				.map(stat => stat.statValue.split('|')[0]);
-			const equipmentCardId = normalizeMercCardId(findEquipmentForHero(allEquipmentCardIds, heroCardId));
+				.map(stat => stat.statValue.split('|')[1]);
+			console.log(
+				'allEquipmentCardIds',
+				allEquipmentCardIds,
+				statsFromGame.filter(stat => stat.statName === 'mercs-hero-equipment'),
+			);
+			const equipmentCardId = findEquipmentForHero(allEquipmentCardIds, normalizeMercCardId(heroCardId));
+			const normalizedEquipmentCardId = normalizeMercCardId(equipmentCardId);
+			console.log('equipmentCardId', normalizedEquipmentCardId);
+			console.log(
+				'spellsFromStats',
+				statsFromGame.filter(stat => stat.statName === 'mercs-hero-skill-used'),
+			);
 			const spellsForHero = getSpellsForHero(
 				statsFromGame.filter(stat => stat.statName === 'mercs-hero-skill-used'),
 				heroCardId,
 			);
+			console.log('spellsForHero', spellsForHero);
+			const heroLevel = parseInt(
+				statsFromGame
+					.filter(stat => stat.statName === 'mercs-hero-level')
+					.map(stat => stat.statValue)
+					.find(level => level.startsWith(heroCardId))
+					.split('|')[1],
+			);
 			return `(
 				${escape(message.creationDate)},
 				${escape(message.reviewId)},
-				${escape(message.scenarioId)},
+				${escape(+message.scenarioId)},
 				${escape(message.result)},
 				${escape(!isNaN(parseInt(message.playerRank)) ? parseInt(message.playerRank) : null)},
 				${escape(isNaN(parseInt(message.playerRank)) ? message.playerRank : null)},
-				${escape(message.buildNumber)},
+				${escape(+message.buildNumber)},
 				${escape(heroCardId)},
 				${escape(heroTiming)},
-				${escape(equipmentCardId)},
+				${escape(normalizedEquipmentCardId)},
+				${escape(heroLevel)},
+				${escape(getCardLevel(equipmentCardId))},
 				${escape(spellsForHero.length > 0 ? spellsForHero[0].spellCardId : null)},
 				${escape(spellsForHero.length > 0 ? spellsForHero[0].level : null)},
 				${escape(spellsForHero.length > 0 ? spellsForHero[0].numberOfTimesUsed : null)},
@@ -136,7 +158,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 				${escape(spellsForHero.length > 1 ? spellsForHero[1].numberOfTimesUsed : null)},
 				${escape(spellsForHero.length > 2 ? spellsForHero[2].spellCardId : null)},
 				${escape(spellsForHero.length > 2 ? spellsForHero[2].level : null)},
-				${escape(spellsForHero.length > 2 ? spellsForHero[2].numberOfTimesUsed : null)},
+				${escape(spellsForHero.length > 2 ? spellsForHero[2].numberOfTimesUsed : null)}
 			)`;
 		})
 		.join(',\n');
@@ -207,12 +229,16 @@ const emptyAsNull = (value: string): string => {
 };
 
 const findEquipmentForHero = (allEquipmentCardIds: string[], heroCardId: string): string => {
+	const refMerc = mercenariesReferenceData.mercenaries.find(
+		merc => normalizeMercCardId(allCards.getCardFromDbfId(merc.cardDbfId).id) === heroCardId,
+	);
+	console.log('refMerc', refMerc, heroCardId);
+	const refMercEquipmentTiers = refMerc?.equipments.map(eq => eq.tiers).reduce((a, b) => a.concat(b), []);
+	console.log('refMercEquipmentTiers', refMercEquipmentTiers);
 	const heroEquipmentCardIds =
-		mercenariesReferenceData.mercenaries
-			.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
-			?.equipments.map(eq => eq.cardDbfId)
-			.map(eqDbfId => allCards.getCardFromDbfId(eqDbfId).id) ?? [];
+		refMercEquipmentTiers.map(eq => eq.cardDbfId).map(eqDbfId => allCards.getCardFromDbfId(eqDbfId).id) ?? [];
 	const candidates: readonly string[] = heroEquipmentCardIds.filter(e => allEquipmentCardIds.includes(e));
+	console.log('candidates', heroCardId, candidates);
 	if (candidates.length === 0) {
 		return null;
 	}
@@ -230,13 +256,22 @@ const getSpellsForHero = (
 ): { spellCardId: string; numberOfTimesUsed: number; level: number }[] => {
 	const heroAbilityCardIds =
 		mercenariesReferenceData.mercenaries
-			.find(merc => allCards.getCardFromDbfId(merc.cardDbfId).id === heroCardId)
-			?.abilities.map(ability => ability.cardDbfId)
+			.find(
+				merc =>
+					normalizeMercCardId(allCards.getCardFromDbfId(merc.cardDbfId).id) ===
+					normalizeMercCardId(heroCardId),
+			)
+			?.abilities.map(ability => ability.tiers)
+			.reduce((a, b) => a.concat(b), [])
+			.map(ability => ability.cardDbfId)
 			.map(abilityDbfId => allCards.getCardFromDbfId(abilityDbfId).id) ?? [];
+	console.log('heroAbilityCardIds', heroAbilityCardIds);
 	const allSpellCardIds = stats.map(stat => stat.statValue.split('|')[0]);
-	const heroSpellCardIds = allSpellCardIds.filter(s => heroAbilityCardIds.includes(normalizeMercCardId(s)));
+	console.log('allSpellCardIds', allSpellCardIds);
+	const heroSpellCardIds = allSpellCardIds.filter(s => heroAbilityCardIds.includes(s));
+	console.log('heroSpellCardIds', heroSpellCardIds);
 	return heroSpellCardIds.sort().map(spellCardId => ({
-		spellCardId: spellCardId,
+		spellCardId: normalizeMercCardId(spellCardId),
 		numberOfTimesUsed: parseInt(stats.find(stat => stat.statValue.startsWith(spellCardId)).statValue.split('|')[1]),
 		level: getCardLevel(spellCardId),
 	}));

@@ -29,7 +29,7 @@ export const getCardLevel = (cardId: string): number => {
 	// Generic handling of mercenaries skins or levelling
 	const skinMatch = cardId.match(/.*_(\d\d)/);
 	if (skinMatch) {
-		return parseInt(skinMatch.groups[1]);
+		return parseInt(skinMatch[1]);
 	}
 	return 0;
 };
