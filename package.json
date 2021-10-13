@@ -1,6 +1,6 @@
 {
 	"name": "@firestone-hs/trigger-process-mercenaries-review",
-	"version": "1.0.0",
+	"version": "1.0.4",
 	"description": "",
 	"scripts": {
 		"lint": "eslint --color --fix --ext .ts .",
@@ -15,6 +15,11 @@
 	"author": "",
 	"license": "MIT",
 	"private": false,
+	"main": "dist/stats-extractor.js",
+	"types": "dist/stats-extractor.d.ts",
+	"files": [
+		"dist/**/*"
+	],
 	"dependencies": {
 		"@firestone-hs/build-global-stats": "^1.0.3",
 		"@firestone-hs/hs-replay-xml-parser": "0.0.85",

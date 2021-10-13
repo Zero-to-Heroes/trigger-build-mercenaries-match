@@ -4,27 +4,26 @@ import { Element } from 'elementtree';
 import { normalizeMercCardId } from '../../utils/hs-utils';
 import { Parser, ParsingStructure } from '../mercs-replay-crawler';
 
-export class HeroesTimingParser implements Parser {
+export class OpponentHeroesTimingParser implements Parser {
 	heroesTiming: { [heroCardId: string]: number } = {};
 	heroesForThisTurn: string[] = [];
 
 	parse = (structure: ParsingStructure, replay: Replay) => {
 		return (element: Element) => {
-			// Now parse the proper timings
-			if (
-				element.tag !== 'TagChange' ||
-				parseInt(element.get('tag')) !== GameTag.ZONE ||
-				parseInt(element.get('value')) !== Zone.PLAY
-			) {
+			// ShowEntity for PvP, FullEntity for PvE
+			if (element.tag !== 'ShowEntity' && element.tag !== 'FullEntity') {
 				return;
 			}
 
-			const entity = structure.entities[parseInt(element.get('entity'))];
-			if (entity?.isMerc !== 1) {
+			const entity = structure.entities[parseInt(element.get('entity') ?? element.get('id'))];
+			if (entity?.isMerc !== 1 && !element.find(`Tag[@tag="${GameTag.LETTUCE_MERCENARY}"][@value="1"]`)) {
 				return;
 			}
 			const cardId = normalizeMercCardId(entity.cardId);
-			if (entity.lettuceController !== replay.mainPlayerId) {
+			if (cardId === 'LETL_015H') {
+				console.log(cardId, entity.cardId);
+			}
+			if (entity.lettuceController !== replay.opponentPlayerId) {
 				return;
 			}
 
@@ -34,9 +33,9 @@ export class HeroesTimingParser implements Parser {
 
 	populate = (structure: ParsingStructure, replay: Replay) => {
 		return (currentTurn: number) => {
-			// console.log('populate', this.heroesForThisTurn);
 			for (const heroCardId of this.heroesForThisTurn) {
-				this.heroesTiming[heroCardId] = this.heroesTiming[heroCardId] || currentTurn;
+				// Turn 0 is the same as turn 1 for us = situation at the start of the game
+				this.heroesTiming[heroCardId] = this.heroesTiming[heroCardId] || currentTurn || 1;
 			}
 			this.heroesForThisTurn = [];
 		};
@@ -47,7 +46,7 @@ export class HeroesTimingParser implements Parser {
 			// Get all the mercs for the main player
 			Object.values(structure.entities)
 				.filter(e => e.isMerc)
-				.filter(e => e.lettuceController === replay.mainPlayerId)
+				.filter(e => e.lettuceController === replay.opponentPlayerId)
 				.forEach(merc => {
 					const heroCardId = normalizeMercCardId(merc.cardId);
 					this.heroesTiming[heroCardId] = this.heroesTiming[heroCardId] || -1;

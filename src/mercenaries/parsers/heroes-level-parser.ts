@@ -26,23 +26,20 @@ export class HeroesLevelParser implements Parser {
 				.forEach(merc => {
 					const heroCardId = normalizeMercCardId(merc.cardId);
 					const totalXp = merc.experience;
-					const currentLevel = getLevelFromXp(totalXp, this.mercenariesReferenceData);
+					const currentLevel = getMercLevelFromExperience(totalXp, this.mercenariesReferenceData);
 					this.levelMapping[heroCardId] = currentLevel;
 				});
 		};
 	};
 }
 
-const getLevelFromXp = (totalXp: number, mercenariesReferenceData: MercenariesReferenceData): number => {
-	let currentLevel = 1;
-	let xpToAttribute = totalXp;
-	for (const levelMapping of mercenariesReferenceData.mercenaryLevels) {
-		if (xpToAttribute < levelMapping.xpToNext) {
+export const getMercLevelFromExperience = (totalXp: number, referenceData: MercenariesReferenceData): number => {
+	let currentLevel = 0;
+	for (const levelMapping of referenceData.mercenaryLevels) {
+		if (levelMapping.xpToNext > totalXp) {
 			break;
 		}
 		currentLevel++;
-		xpToAttribute -= levelMapping.xpToNext;
 	}
-	// console.log(totalXp, 'maps to lvl', currentLevel);
 	return currentLevel;
 };

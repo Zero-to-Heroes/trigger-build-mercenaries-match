@@ -8,6 +8,7 @@ import { S3 } from './db/s3';
 import { mercsHeroesInfosExtractor } from './mercenaries/heroes-info-extractor';
 import { ReviewMessage } from './review-message';
 import { Stat } from './stat';
+import { extractStats } from './stats-extractor';
 import { getCardLevel, isMercenaries, normalizeMercCardId } from './utils/hs-utils';
 import { http } from './utils/util-functions';
 
@@ -56,7 +57,18 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 	}
 
 	const replay: Replay = parseHsReplayString(replayString);
-	const statsFromGame: readonly Stat[] = await extractStats(message, replay, replayString, mercenariesReferenceData);
+	const statsFromGame: readonly Stat[] = await extractStats(
+		message,
+		replay,
+		replayString,
+		mercenariesReferenceData,
+		allCards,
+	);
+
+	if (!statsFromGame.filter(stat => stat.statName === 'mercs-hero-timing').length) {
+		console.log('no hero timings, returning', statsFromGame);
+		return;
+	}
 
 	const heroTimings = statsFromGame
 		.filter(stat => stat.statName === 'mercs-hero-timing')
@@ -192,23 +204,6 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 	`;
 	console.log('running query', statsQuery);
 	await mysql.query(statsQuery);
-};
-
-export const extractStats = async (
-	message: ReviewMessage,
-	replay: Replay,
-	replayString: string,
-	mercenariesReferenceData: MercenariesReferenceData,
-): Promise<readonly Stat[]> => {
-	const extractors = [mercsHeroesInfosExtractor];
-	const stats: readonly Stat[] = (
-		await Promise.all(
-			extractors.map(extractor => extractor(message, replay, replayString, allCards, mercenariesReferenceData)),
-		)
-	)
-		.reduce((a, b) => a.concat(b), [])
-		.filter(stat => stat);
-	return stats;
 };
 
 export const loadReplayString = async (replayKey: string): Promise<string> => {

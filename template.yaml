@@ -43,7 +43,7 @@ Resources:
             CodeUri: ./dist/process-mercenaries-review
             MemorySize: 512
             Timeout: 40
-            ReservedConcurrentExecutions: 1
+            ReservedConcurrentExecutions: 15
             Policies:
                 - AWSLambdaVPCAccessExecutionRole
                 - SecretsManagerReadWrite
