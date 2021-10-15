@@ -141,7 +141,7 @@ const parseElement = (
 		}
 		if (
 			parseInt(element.get('tag')) === GameTag.PLAYSTATE &&
-			[PlayState.WON, PlayState.LOST].includes(parseInt(element.get('value')))
+			[PlayState.WON, PlayState.LOST, PlayState.TIED].includes(parseInt(element.get('value')))
 		) {
 			// The opponent player id is squeezed because of the duplicate Innkeeper entities, so we
 			// have to rely on the main player
