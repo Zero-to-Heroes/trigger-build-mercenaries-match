@@ -30,8 +30,10 @@ export const crawlMercsGame = (replay: Replay, parsers: readonly Parser[]) => {
 		{ currentTurn: 0 },
 		parserFunctions,
 		populateFunctions,
-		finalizeFunctions,
 	);
+	// Run the finalization outside of the parsing loop, so that it wraps things up even
+	// if some tags are missing
+	finalizeFunctions.forEach(finalizeFunction => finalizeFunction(structure.currentTurn));
 };
 
 // While we don't use the metric, the entity info that is populated is useful for other extractors
@@ -127,7 +129,6 @@ const parseElement = (
 	turnCountWrapper,
 	parseFunctions: readonly ((element: Element) => void)[],
 	populateFunctions: readonly ((currentTurn: number) => void)[],
-	finalizeFunctions: readonly ((currentTurn: number) => void)[],
 ) => {
 	parseFunctions.forEach(parseFunction => parseFunction(element));
 	// TODO: externalize turn change function
@@ -147,7 +148,6 @@ const parseElement = (
 			// have to rely on the main player
 			if (+element.get('entity') === mainPlayerEntityId) {
 				populateFunctions.forEach(populateFunction => populateFunction(turnCountWrapper.currentTurn));
-				finalizeFunctions.forEach(finalizeFunction => finalizeFunction(turnCountWrapper.currentTurn));
 				turnCountWrapper.currentTurn++;
 			}
 		}
@@ -165,7 +165,6 @@ const parseElement = (
 				turnCountWrapper,
 				parseFunctions,
 				populateFunctions,
-				finalizeFunctions,
 			);
 		}
 	}

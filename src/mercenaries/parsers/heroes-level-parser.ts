@@ -19,13 +19,11 @@ export class HeroesLevelParser implements Parser {
 
 	finalize = (structure: ParsingStructure, replay: Replay) => {
 		return (currentTurn: number) => {
-			console.log('finalizing');
 			// Get all the mercs for the main player
 			Object.values(structure.entities)
 				.filter(e => e.isMerc)
 				.filter(e => e.lettuceController === replay.mainPlayerId)
 				.forEach(merc => {
-					console.log('handling level for merc', merc)
 					const heroCardId = normalizeMercCardId(merc.cardId);
 					const totalXp = merc.experience;
 					const currentLevel = getMercLevelFromExperience(totalXp, this.mercenariesReferenceData);
