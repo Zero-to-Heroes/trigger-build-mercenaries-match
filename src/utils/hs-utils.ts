@@ -14,9 +14,9 @@ export const normalizeMercCardId = (cardId: string): string => {
 	}
 
 	// Generic handling of mercenaries skins or levelling
-	const skinMatch = cardId.match(/.*_(\d\d)$/);
+	const skinMatch = cardId.match(/.*_(\d\d)[ab]?$/);
 	if (skinMatch) {
-		return cardId.replace(/(.*)(_\d\d)$/, '$1_01');
+		return cardId.replace(/(.*)(_\d\d)[ab]?$/, '$1_01');
 	}
 	return cardId;
 };
