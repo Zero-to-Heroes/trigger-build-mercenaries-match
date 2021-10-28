@@ -20,9 +20,6 @@ export class OpponentHeroesTimingParser implements Parser {
 				return;
 			}
 			const cardId = normalizeMercCardId(entity.cardId);
-			if (cardId === 'LETL_015H') {
-				console.log(cardId, entity.cardId);
-			}
 			if (entity.lettuceController !== replay.opponentPlayerId) {
 				return;
 			}

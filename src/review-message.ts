@@ -24,11 +24,12 @@ export interface ReviewMessage {
 	readonly uploaderToken: string;
 	readonly buildNumber: number;
 	readonly playerDeckName: string;
-	readonly scenarioId: string;
+	readonly scenarioId: number;
 	readonly additionalResult: string;
 	readonly availableTribes: readonly Race[];
 	readonly bannedTribes: readonly Race[];
 	readonly currentDuelsRunId: string;
 	readonly runId: string;
 	readonly appVersion: string;
+	readonly mercBountyId: number;
 }

@@ -41,7 +41,7 @@ Resources:
             Handler: process-mercenaries-review.default
             Runtime: nodejs12.x
             CodeUri: ./dist/process-mercenaries-review
-            MemorySize: 512
+            MemorySize: 256
             Timeout: 40
             ReservedConcurrentExecutions: 15
             Policies:

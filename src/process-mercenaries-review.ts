@@ -1,5 +1,5 @@
 import { parseHsReplayString, Replay } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
-import { AllCardsService } from '@firestone-hs/reference-data';
+import { AllCardsService, ScenarioId } from '@firestone-hs/reference-data';
 import { normalize } from 'path';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
@@ -32,9 +32,9 @@ export default async (event): Promise<any> => {
 		const strReferenceData = await http(
 			`https://static.zerotoheroes.com/hearthstone/data/mercenaries-data.json?v=3`,
 		);
-		console.log('found reference data', strReferenceData?.length);
+		// console.log('found reference data', strReferenceData?.length);
 		mercenariesReferenceData = JSON.parse(strReferenceData);
-		console.log('parsed reference data', mercenariesReferenceData);
+		// console.log('parsed reference data', mercenariesReferenceData);
 	}
 	// console.log('mercenaries reference data', mercenariesReferenceData);
 	for (const message of messages) {
@@ -46,10 +46,52 @@ export default async (event): Promise<any> => {
 
 const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Promise<void> => {
 	if (!isMercenaries(message.gameMode)) {
-		console.log('not mercenaries', message);
+		// console.log('not mercenaries', message);
 		return;
 	}
-	await allCards.initializeCardsDb('otirjhoritjh');
+
+	const scenarioId = +message.scenarioId;
+	if (scenarioId !== ScenarioId.LETTUCE_PVP) {
+		// console.log('limiting to PvP stats for now, returning');
+		return;
+	}
+
+	// if (
+	// 	scenarioId === ScenarioId.LETTUCE_MAP_PVE &&
+	// 	(!message.playerRank || !['normal', 'heroic', 'legendary'].includes(message.playerRank))
+	// ) {
+	// 	console.error('invalid difficulty for PvE', message);
+	// 	return;
+	// }
+
+	// if (
+	// 	scenarioId === ScenarioId.LETTUCE_MAP_PVE &&
+	// 	(!message.mercBountyId ||
+	// 		(message.mercBountyId as any) === 'undefined' ||
+	// 		isNaN(parseInt(message.mercBountyId as any)))
+	// ) {
+	// 	console.error('missing bounty id for PvE', message);
+	// 	return;
+	// }
+
+	if (scenarioId === ScenarioId.LETTUCE_PVP && (!message.playerRank || isNaN(parseInt(message.playerRank)))) {
+		// console.error('invalid rating for PvP', message);
+		return;
+	}
+
+	// Leagues that were formatted
+	if (scenarioId === ScenarioId.LETTUCE_PVP && +message.playerRank >= 1 && +message.playerRank <= 5) {
+		// console.error('invalid rating for PvP', message);
+		return;
+	}
+
+	console.log(
+		'processing',
+		message,
+		// scenarioId === ScenarioId.LETTUCE_MAP_PVE ? isNaN(parseInt(message.mercBountyId as any)) : null,
+	);
+
+	await allCards.initializeCardsDb('121569');
 
 	const replayString = await loadReplayString(message.replayKey);
 	if (!replayString || replayString.length === 0) {
@@ -66,7 +108,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 	);
 
 	if (!statsFromGame.filter(stat => stat.statName === 'mercs-hero-timing').length) {
-		console.log('no hero timings, returning', statsFromGame);
+		// console.log('no hero timings, returning', statsFromGame);
 		return;
 	}
 
@@ -104,7 +146,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 			WHERE
 				reviewId = ${escape(message.reviewId)}
 		`;
-	console.log('running second query', replaySumaryUpdateQuery);
+	// console.log('running second query', replaySumaryUpdateQuery);
 	await mysql.query(replaySumaryUpdateQuery);
 
 	// And now populate the second table
@@ -125,23 +167,23 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 			const allEquipmentCardIds = statsFromGame
 				.filter(stat => stat.statName === 'mercs-hero-equipment')
 				.map(stat => stat.statValue.split('|')[1]);
-			console.log(
-				'allEquipmentCardIds',
-				allEquipmentCardIds,
-				statsFromGame.filter(stat => stat.statName === 'mercs-hero-equipment'),
-			);
+			// console.log(
+			// 	'allEquipmentCardIds',
+			// 	allEquipmentCardIds,
+			// 	statsFromGame.filter(stat => stat.statName === 'mercs-hero-equipment'),
+			// );
 			const equipmentCardId = findEquipmentForHero(allEquipmentCardIds, normalizeMercCardId(heroCardId));
 			const normalizedEquipmentCardId = normalizeMercCardId(equipmentCardId);
-			console.log('equipmentCardId', normalizedEquipmentCardId);
-			console.log(
-				'spellsFromStats',
-				statsFromGame.filter(stat => stat.statName === 'mercs-hero-skill-used'),
-			);
+			// console.log('equipmentCardId', normalizedEquipmentCardId);
+			// console.log(
+			// 	'spellsFromStats',
+			// 	statsFromGame.filter(stat => stat.statName === 'mercs-hero-skill-used'),
+			// );
 			const spellsForHero = getSpellsForHero(
 				statsFromGame.filter(stat => stat.statName === 'mercs-hero-skill-used'),
 				heroCardId,
 			);
-			console.log('spellsForHero', spellsForHero);
+			// console.log('spellsForHero', spellsForHero);
 			const heroLevel = parseInt(
 				statsFromGame
 					.filter(stat => stat.statName === 'mercs-hero-level')
@@ -152,10 +194,11 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 			return `(
 				${escape(message.creationDate)},
 				${escape(message.reviewId)},
-				${escape(+message.scenarioId)},
+				${escape(scenarioId)},
+				${escape(isNaN(parseInt(message.mercBountyId as any)) ? null : message.mercBountyId)},
 				${escape(message.result)},
-				${escape(!isNaN(parseInt(message.playerRank)) ? parseInt(message.playerRank) : null)},
-				${escape(isNaN(parseInt(message.playerRank)) ? message.playerRank : null)},
+				${escape(scenarioId === ScenarioId.LETTUCE_PVP ? parseInt(message.playerRank) : null)},
+				${escape(['normal', 'heroic', 'legendary'].includes(message.playerRank) ? message.playerRank : null)},
 				${escape(+message.buildNumber)},
 				${escape(heroCardId)},
 				${escape(heroTiming)},
@@ -180,6 +223,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 			startDate,
 			reviewId,
 			scenarioId,
+			bountyId,
 			result,
 			rating,
 			difficulty,
@@ -202,7 +246,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 		VALUES 
 		${values}
 	`;
-	console.log('running query', statsQuery);
+	// console.log('running query', statsQuery);
 	await mysql.query(statsQuery);
 };
 
@@ -227,13 +271,13 @@ const findEquipmentForHero = (allEquipmentCardIds: string[], heroCardId: string)
 	const refMerc = mercenariesReferenceData.mercenaries.find(
 		merc => normalizeMercCardId(allCards.getCardFromDbfId(merc.cardDbfId).id) === heroCardId,
 	);
-	console.log('refMerc', refMerc, heroCardId);
+	// console.log('refMerc', refMerc, heroCardId);
 	const refMercEquipmentTiers = refMerc?.equipments.map(eq => eq.tiers).reduce((a, b) => a.concat(b), []);
-	console.log('refMercEquipmentTiers', refMercEquipmentTiers);
+	// console.log('refMercEquipmentTiers', refMercEquipmentTiers);
 	const heroEquipmentCardIds =
 		refMercEquipmentTiers.map(eq => eq.cardDbfId).map(eqDbfId => allCards.getCardFromDbfId(eqDbfId).id) ?? [];
 	const candidates: readonly string[] = heroEquipmentCardIds.filter(e => allEquipmentCardIds.includes(e));
-	console.log('candidates', heroCardId, candidates);
+	// console.log('candidates', heroCardId, candidates);
 	if (candidates.length === 0) {
 		return null;
 	}
@@ -260,11 +304,11 @@ const getSpellsForHero = (
 			.reduce((a, b) => a.concat(b), [])
 			.map(ability => ability.cardDbfId)
 			.map(abilityDbfId => allCards.getCardFromDbfId(abilityDbfId).id) ?? [];
-	console.log('heroAbilityCardIds', heroAbilityCardIds);
+	// console.log('heroAbilityCardIds', heroAbilityCardIds);
 	const allSpellCardIds = stats.map(stat => stat.statValue.split('|')[0]);
-	console.log('allSpellCardIds', allSpellCardIds);
+	// console.log('allSpellCardIds', allSpellCardIds);
 	const heroSpellCardIds = allSpellCardIds.filter(s => heroAbilityCardIds.includes(s));
-	console.log('heroSpellCardIds', heroSpellCardIds);
+	// console.log('heroSpellCardIds', heroSpellCardIds);
 	return heroSpellCardIds.sort().map(spellCardId => ({
 		spellCardId: normalizeMercCardId(spellCardId),
 		numberOfTimesUsed: parseInt(stats.find(stat => stat.statValue.startsWith(spellCardId)).statValue.split('|')[1]),

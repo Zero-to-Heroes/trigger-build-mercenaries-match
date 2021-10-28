@@ -34,6 +34,10 @@ export class HeroesLevelParser implements Parser {
 }
 
 export const getMercLevelFromExperience = (totalXp: number, referenceData: MercenariesReferenceData): number => {
+	if (!referenceData?.mercenaryLevels?.length) {
+		return 0;
+	}
+
 	let currentLevel = 0;
 	for (const levelMapping of referenceData.mercenaryLevels) {
 		if (levelMapping.xpToNext > totalXp) {

@@ -18,7 +18,7 @@ const doTest = async () => {
 		await http(`https://static.zerotoheroes.com/hearthstone/data/mercenaries-data.json?v=3`),
 	);
 	const allCards = new AllCardsService();
-	await allCards.initializeCardsDb();
+	await allCards.initializeCardsDb('95431-6');
 	const statsFromGame: readonly Stat[] = await extractStats(
 		{
 			gameMode: 'mercenaries-pve',
