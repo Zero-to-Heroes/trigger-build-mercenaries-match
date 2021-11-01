@@ -1,4 +1,4 @@
-import { parseHsReplayString, Replay } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
+import { extractTotalTurns, parseHsReplayString, Replay } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { AllCardsService, ScenarioId } from '@firestone-hs/reference-data';
 import { normalize } from 'path';
 import { ServerlessMysql } from 'serverless-mysql';
@@ -99,6 +99,12 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 	}
 
 	const replay: Replay = parseHsReplayString(replayString);
+	const numberOfTurns = extractTotalTurns(replay);
+	if (numberOfTurns <= 3) {
+		console.log('game too short, not including it for stats', numberOfTurns);
+		return;
+	}
+
 	const statsFromGame: readonly Stat[] = await extractStats(
 		message,
 		replay,
@@ -149,6 +155,20 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 	// console.log('running second query', replaySumaryUpdateQuery);
 	await mysql.query(replaySumaryUpdateQuery);
 
+	const statsQuery = buildInsertQuery(message, statsFromGame, allCards, mercenariesReferenceData);
+	// console.log('running query', statsQuery);
+	await mysql.query(statsQuery);
+};
+
+export const buildInsertQuery = (
+	message: ReviewMessage,
+	statsFromGame: readonly Stat[],
+	allCards: AllCardsService,
+	mercenariesReferenceData: MercenariesReferenceData,
+): string => {
+	const escape = SqlString.escape;
+	const scenarioId = +message.scenarioId;
+
 	// And now populate the second table
 	const uniqueHeroIds = statsFromGame
 		.filter(stat => stat.statName === 'mercs-hero-timing')
@@ -172,7 +192,12 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 			// 	allEquipmentCardIds,
 			// 	statsFromGame.filter(stat => stat.statName === 'mercs-hero-equipment'),
 			// );
-			const equipmentCardId = findEquipmentForHero(allEquipmentCardIds, normalizeMercCardId(heroCardId));
+			const equipmentCardId = findEquipmentForHero(
+				allEquipmentCardIds,
+				normalizeMercCardId(heroCardId),
+				allCards,
+				mercenariesReferenceData,
+			);
 			const normalizedEquipmentCardId = normalizeMercCardId(equipmentCardId);
 			// console.log('equipmentCardId', normalizedEquipmentCardId);
 			// console.log(
@@ -182,6 +207,8 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 			const spellsForHero = getSpellsForHero(
 				statsFromGame.filter(stat => stat.statName === 'mercs-hero-skill-used'),
 				heroCardId,
+				allCards,
+				mercenariesReferenceData,
 			);
 			// console.log('spellsForHero', spellsForHero);
 			const heroLevel = parseInt(
@@ -246,8 +273,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 		VALUES 
 		${values}
 	`;
-	// console.log('running query', statsQuery);
-	await mysql.query(statsQuery);
+	return statsQuery;
 };
 
 export const loadReplayString = async (replayKey: string): Promise<string> => {
@@ -267,10 +293,19 @@ const emptyAsNull = (value: string): string => {
 	return value;
 };
 
-const findEquipmentForHero = (allEquipmentCardIds: string[], heroCardId: string): string => {
+const findEquipmentForHero = (
+	allEquipmentCardIds: string[],
+	heroCardId: string,
+	allCards: AllCardsService,
+	mercenariesReferenceData: MercenariesReferenceData,
+): string => {
 	const refMerc = mercenariesReferenceData.mercenaries.find(
-		merc => normalizeMercCardId(allCards.getCardFromDbfId(merc.cardDbfId).id) === heroCardId,
+		merc => normalizeMercCardId(allCards.getCardFromDbfId(merc.cardDbfId).id) === normalizeMercCardId(heroCardId),
 	);
+	// Can happen when facing summoned minions
+	if (!refMerc) {
+		return null;
+	}
 	// console.log('refMerc', refMerc, heroCardId);
 	const refMercEquipmentTiers = refMerc?.equipments.map(eq => eq.tiers).reduce((a, b) => a.concat(b), []);
 	// console.log('refMercEquipmentTiers', refMercEquipmentTiers);
@@ -292,6 +327,8 @@ const findEquipmentForHero = (allEquipmentCardIds: string[], heroCardId: string)
 const getSpellsForHero = (
 	stats: Stat[],
 	heroCardId: string,
+	allCards: AllCardsService,
+	mercenariesReferenceData: MercenariesReferenceData,
 ): { spellCardId: string; numberOfTimesUsed: number; level: number }[] => {
 	const heroAbilityCardIds =
 		mercenariesReferenceData.mercenaries
