@@ -13,10 +13,14 @@ export const normalizeMercCardId = (cardId: string): string => {
 		return cardId;
 	}
 
-	// Generic handling of mercenaries skins or levelling
-	const skinMatch = cardId.match(/.*_(\d\d)[ab]?$/);
+	let skinMatch = cardId.match(/.*_(\d\d)([ab]?)$/);
 	if (skinMatch) {
-		return cardId.replace(/(.*)(_\d\d)[ab]?$/, '$1_01');
+		return cardId.replace(/(.*)(_\d\d)([ab]?)$/, '$1_01$3');
+	}
+	// Sometimes it is 01, sometimes 001
+	skinMatch = cardId.match(/.*_(\d\d\d)([ab]?)$/);
+	if (skinMatch) {
+		return cardId.replace(/(.*)(_\d\d\d)([ab]?)$/, '$1_001$3');
 	}
 	return cardId;
 };
