@@ -9,10 +9,9 @@ export const isMercenaries = (gameMode: string): boolean => {
 };
 
 export const normalizeMercCardId = (cardId: string): string => {
-	if (!cardId) {
-		return cardId;
+	if (!cardId?.length) {
+		return null;
 	}
-
 	let skinMatch = cardId.match(/.*_(\d\d)([ab]?)$/);
 	if (skinMatch) {
 		return cardId.replace(/(.*)(_\d\d)([ab]?)$/, '$1_01$3');

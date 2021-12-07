@@ -1,6 +1,6 @@
 {
 	"name": "@firestone-hs/trigger-process-mercenaries-review",
-	"version": "1.0.8",
+	"version": "1.0.9",
 	"description": "",
 	"scripts": {
 		"lint": "eslint --color --fix --ext .ts .",
@@ -22,7 +22,7 @@
 	],
 	"dependencies": {
 		"@firestone-hs/build-global-stats": "^1.0.3",
-		"@firestone-hs/hs-replay-xml-parser": "0.0.85",
+		"@firestone-hs/hs-replay-xml-parser": "0.0.90",
 		"@firestone-hs/reference-data": "^0.1.159",
 		"@types/elementtree": "^0.1.0",
 		"aws-sdk": "^2.524.0",

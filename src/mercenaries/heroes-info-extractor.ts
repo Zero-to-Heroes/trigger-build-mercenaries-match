@@ -23,7 +23,7 @@ export const mercsHeroesInfosExtractor = async (
 		return null;
 	}
 
-	// console.log('replay mainPlayerId', replay.mainPlayerId);
+	console.log('replay mainPlayerId', replay.mainPlayerId);
 	const heroesInfos = heroesInfosExtractor(replay, allCards, mercenariesReferenceData);
 	// console.log('heroesTiming', heroesTiming);
 

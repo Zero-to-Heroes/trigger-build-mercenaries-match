@@ -21,6 +21,7 @@ export class OpponentHeroesTimingParser implements Parser {
 			}
 			const cardId = normalizeMercCardId(entity.cardId);
 			if (entity.lettuceController !== replay.opponentPlayerId) {
+				// console.debug('wrong controller', entity.lettuceController, replay.opponentPlayerId, entity, replay);
 				return;
 			}
 

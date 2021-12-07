@@ -16,6 +16,7 @@ const doTest = async () => {
 	const replay: Replay = parseHsReplayString(replayString);
 	console.debug('result', replay.result);
 	console.debug('scenarioId', replay.scenarioId);
+	console.debug('opponnet', replay.opponentPlayerName);
 	console.debug('playerId', replay.mainPlayerId);
 	console.debug('opponentId', replay.opponentPlayerId);
 	const mercenariesReferenceData: MercenariesReferenceData = JSON.parse(
@@ -29,13 +30,13 @@ const doTest = async () => {
 			gameMode: 'mercenaries-pve',
 		} as ReviewMessage,
 		replay,
-		replayString,
+		null,
 		mercenariesReferenceData,
 		allCards,
 	);
 	console.debug('statsFromGame', statsFromGame);
 	const insertQuery = buildInsertQuery(reviewMessage, statsFromGame, allCards, mercenariesReferenceData);
-	console.debug('insertQuery', insertQuery);
+	// console.debug('insertQuery', insertQuery);
 };
 
 doTest();
