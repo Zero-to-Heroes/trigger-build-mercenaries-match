@@ -1,11 +1,9 @@
 import { extractTotalTurns, parseHsReplayString, Replay } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { AllCardsService, ScenarioId } from '@firestone-hs/reference-data';
-import { normalize } from 'path';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
 import { getConnection } from './db/rds';
 import { S3 } from './db/s3';
-import { mercsHeroesInfosExtractor } from './mercenaries/heroes-info-extractor';
 import { ReviewMessage } from './review-message';
 import { Stat } from './stat';
 import { extractStats } from './stats-extractor';
@@ -91,7 +89,7 @@ const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Pro
 		// scenarioId === ScenarioId.LETTUCE_MAP_PVE ? isNaN(parseInt(message.mercBountyId as any)) : null,
 	);
 
-	await allCards.initializeCardsDb('121569');
+	await allCards.initializeCardsDb();
 
 	const replayString = await loadReplayString(message.replayKey);
 	if (!replayString || replayString.length === 0) {
