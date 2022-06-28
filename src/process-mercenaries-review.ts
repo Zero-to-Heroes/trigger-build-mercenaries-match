@@ -43,6 +43,12 @@ export default async (event): Promise<any> => {
 };
 
 const handleReview = async (message: ReviewMessage, mysql: ServerlessMysql): Promise<void> => {
+	const useNewProcess = true;
+	if (useNewProcess) {
+		console.log('new process, returning');
+		return;
+	}
+
 	if (!isMercenaries(message.gameMode)) {
 		// console.log('not mercenaries', message);
 		return;
