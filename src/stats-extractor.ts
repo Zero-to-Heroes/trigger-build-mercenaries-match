@@ -5,19 +5,16 @@ import { MercenariesReferenceData } from './process-mercenaries-review';
 import { ReviewMessage } from './review-message';
 import { Stat } from './stat';
 
-export const extractStats = async (
+export const extractStats = (
 	message: ReviewMessage,
 	replay: Replay,
 	replayString: string,
 	mercenariesReferenceData: MercenariesReferenceData,
 	allCards: AllCardsService,
-): Promise<readonly Stat[]> => {
+): readonly Stat[] => {
 	const extractors = [mercsHeroesInfosExtractor];
-	const stats: readonly Stat[] = (
-		await Promise.all(
-			extractors.map(extractor => extractor(message, replay, replayString, allCards, mercenariesReferenceData)),
-		)
-	)
+	const stats: readonly Stat[] = extractors
+		.map(extractor => extractor(message, replay, replayString, allCards, mercenariesReferenceData))
 		.reduce((a, b) => a.concat(b), [])
 		.filter(stat => stat);
 	return stats;

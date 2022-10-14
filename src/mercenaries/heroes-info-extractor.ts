@@ -1,23 +1,23 @@
 import { Replay } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { AllCardsService } from '@firestone-hs/reference-data';
+import { MercenariesReferenceData } from '../process-mercenaries-review';
+import { ReviewMessage } from '../review-message';
+import { Stat } from '../stat';
+import { isMercenaries } from '../utils/hs-utils';
+import { crawlMercsGame } from './mercs-replay-crawler';
 import { HeroesEquipmentParser } from './parsers/heroes-equipment-parser';
 import { HeroesLevelParser } from './parsers/heroes-level-parser';
-import { HeroesTimingParser } from './parsers/heroes-timing-parser';
-import { crawlMercsGame } from './mercs-replay-crawler';
 import { HeroesSkillsParser } from './parsers/heroes-skill-parser';
-import { isMercenaries } from '../utils/hs-utils';
-import { Stat } from '../stat';
-import { ReviewMessage } from '../review-message';
-import { MercenariesReferenceData } from '../process-mercenaries-review';
+import { HeroesTimingParser } from './parsers/heroes-timing-parser';
 import { OpponentHeroesTimingParser } from './parsers/opponent-heroes-timing-parser';
 
-export const mercsHeroesInfosExtractor = async (
+export const mercsHeroesInfosExtractor = (
 	message: ReviewMessage,
 	replay: Replay,
 	replayString: string,
 	allCards: AllCardsService,
 	mercenariesReferenceData: MercenariesReferenceData,
-): Promise<readonly Stat[]> => {
+): readonly Stat[] => {
 	// console.log('will extract', isMercenaries(message.gameMode), message.gameMode);
 	if (!isMercenaries(message.gameMode)) {
 		return null;
